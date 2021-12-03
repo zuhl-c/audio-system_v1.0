@@ -1,9 +1,5 @@
-/* Copyright (C) zuhail pm - All Rights Reserved
- * Unauthorized copying of this file, via any medium is strictly prohibited
- * Proprietary and confidential
- * Written by zuhail pm on April 2021
- * https://github.com/zuhl-c
- */
+/* This program was written by zuhail pm on April 2021. https://github.com/zuhl-c */
+/* 6 channel audio processor control with arduino */
  
 #include <Wire.h>
 #include <PT2323.h> 
