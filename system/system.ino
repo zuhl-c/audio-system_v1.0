@@ -36,11 +36,26 @@
 #define TR_M   0x807F2AD5//treble--
 
 //Rotary encoder pins
-#define DAT 10
-#define CLK 11
-#define BTN 12
+const byte DAT = 10;
+const byte CLK = 11;
+int BTN = 12;
+int8_t state = 0;
 
 
+byte DIG[4][8] = {
+  { B11111,B11111,B11111,B11111,B11111,B11111,B11111,B11111},//Y block
+  { B11111,B11111,B00000,B00000,B00000,B00000,B00000,B00000},//xl block
+  { B00000,B00000,B00000,B00000,B00000,B00000,B11111,B11111},//xr block
+  { B11111,B11111,B00000,B00000,B00000,B00000,B11111,B11111},//xlr blck
+};
+
+byte zuhl[4][8]={ 
+    { B11111,B10001,B11101,B10001,B10111,B10001,B11111,B00000},//z
+    { B11111,B10101,B10101,B10101,B10101,B10001,B11111,B00000},//u
+    { B11111,B10101,B10101,B10001,B10101,B10101,B11111,B00000},//h
+    { B11111,B10111,B10111,B10111,B10111,B10001,B11111,B00000},//l
+ };
+ 
    PT2323 pt23; 
    PT2322 pt22;
 
@@ -51,22 +66,28 @@
    unsigned long time,key_value=0;
    boolean disable,light;
 
-
    LiquidCrystal lcd(2, 3, 4, 5, 6, 7);// RS,E,D4,D5,D6,D7 connection LCD
    IRrecv irrecv(IR_PIN);
    decode_results ir;
 
-   String MENUS[]={"AUDIO-SYSTEM","INPUT","VOLUME","FRONT","SURROUND",
-                   "CENTER","SUB OUT","BASS","MIDDLE","TREBLE",
-                   "3D SOUND","MUTE","ON ","OFF"};
+   String MENUS[]={"AUDIO-SYSTEM","INPUT","VOLUME","FRONT","SURROUND","CENTER","SUB OUT","BASS","MIDDLE","TREBLE","3D SOUND","MUTE","ON ","OFF"};
 
 void setup() {
 
   pinMode(backlight,OUTPUT);
-  pinMode(CLK,INPUT);
   pinMode(DAT,INPUT);
+  pinMode(CLK,INPUT);
   pinMode(BTN,INPUT_PULLUP);
   digitalWrite(backlight,HIGH);
+
+  lcd.createChar(0,DIG[0]);
+  lcd.createChar(1,DIG[1]);
+  lcd.createChar(2,DIG[2]);
+  lcd.createChar(3,DIG[3]);
+  lcd.createChar(4,zuhl[0]);
+  lcd.createChar(5,zuhl[1]);
+  lcd.createChar(6,zuhl[2]);
+  lcd.createChar(7,zuhl[3]);
     
   Wire.begin();
   Serial.begin(9600);
@@ -88,7 +109,7 @@ void loop() {
     }
     switch (ir.value){
      //input function//
-      case IN_SW:menu=1;break;
+     case IN_SW:menu=1;break;
      //volume //
      case  VOL_P: case VOL_M:menu=2;break;
      //front//
@@ -117,90 +138,79 @@ void loop() {
   }
 
 //Rotary encoder functions
-  if(digitalRead(BTN)==LOW){if(millis()-time>50){ menu++;cl();if(menu>10){menu=1;}rom=1;} time=millis();}
+  if(digitalRead(BTN)==LOW){
+    if(millis()-time>50){menu++;cl();if(menu>10){menu=1;}rom=1;}
+    time=millis();
+    }
+  if(rotaryEncoder(state)){Serial.println("Rotary encoder is rotating");}
 
-//    currentState=digitalRead(CLK);
-//    
-//    if(currentState!=lastState&&currentState==1){
-//      if(digitalRead(DAT)!=digitalRead(CLK)){
-//     Serial.print("DATA PIN : ");Serial.println(digitalRead(DAT));
-//     Serial.print("CLOCK PIN : ");Serial.println(digitalRead(CLK));
-//        Serial.println("CLOCK WISE >>>");
-//      }
-//      if(digitalRead(DAT)==digitalRead(CLK)){
-//     Serial.print("DATA PIN : ");Serial.println(digitalRead(DAT));
-//     Serial.print("CLOCK PIN : ");Serial.println(digitalRead(CLK));
-//        Serial.println("ANNTI CLOCK WISE <<<");
-//      }
-//    }
-//  lastState=currentState;
-
-//Remote controll functions    
+//remote and rotary encoder controll functions   
+     
    //input//
     if(menu==1)
    {
-   if(ir.value==IN_SW){cl();in++;if(in>4){in=0;}audio_23();rom=1;time=millis();}
-   printMenu(in+1);
+   if(ir.value==IN_SW||state==1){cl();in++;if(in>4){in=0;}audio_23();rom=1;time=millis();}
+   printMenu(menu);printValue(in+1);
   }      
     //volume//
     if(menu==2)
   {
     //remote controlled
-     if(ir.value==VOL_P){volume++;if(volume>=79){volume=79;}cl();audio_22();rom=1;time=millis();}
-     if(ir.value==VOL_M){volume--;if(volume<=0){volume=0;}cl();audio_22();rom=1;time=millis();}
-     printMenu(volume);
+     if(ir.value==VOL_P||state== 1){volume++;if(volume>=79){volume=79;}cl();audio_22();rom=1;time=millis();}
+     if(ir.value==VOL_M||state==-1){volume--;if(volume<=0){volume=0;}cl();audio_22();rom=1;time=millis();}
+     printMenu(menu);printValue(volume);
    }
    if(menu==3){
    //front//
-    if(ir.value==FR_P){front++;if(front>15){front=15;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==FR_M){front--;if(front<0){front=0;}cl();audio_22();rom=1;time=millis();}
-    printMenu(front);
+    if(ir.value==FR_P||state== 1){front++;if(front>15){front=15;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==FR_M||state==-1){front--;if(front<0){front=0;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(front);
     }
     if(menu==4){
   //surround//
-    if(ir.value==RR_P){rear++;if(rear>15){rear=15;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==RR_M){rear--;if(rear<0){rear=0;}cl();audio_22();rom=1;time=millis();}
-    printMenu(rear);
+    if(ir.value==RR_P||state== 1){rear++;if(rear>15){rear=15;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==RR_M||state==-1){rear--;if(rear<0){rear=0;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(rear);
     }
    if(menu==5){
   //center//
-    if(ir.value==CT_P){center++;if(center>15){center=15;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==CT_M){center--;if(center<0){center=0;}cl();audio_22();rom=1;time=millis();}
-    printMenu(center);
+    if(ir.value==CT_P||state== 1){center++;if(center>15){center=15;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==CT_M||state==-1){center--;if(center<0){center=0;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(center);
     }
     if(menu==6){
   //subwoofer//
-    if(ir.value==SUB_P){sub++;if(sub>15){sub=15;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==SUB_M){sub--;if(sub<0){sub=0;}cl();audio_22();rom=1;time=millis();}
-    printMenu(sub);
+    if(ir.value==SUB_P||state== 1){sub++;if(sub>15){sub=15;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==SUB_M||state==-1){sub--;if(sub<0){sub=0;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(sub);
     }
     //bass//
     if(menu==7)
    {
-    if(ir.value==BAS_P){bass++;if(bass>7){bass=7;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==BAS_M){bass--;if(bass<-7){bass=-7;}cl();audio_22();rom=1;time=millis();}
-    printMenu(bass*2);
+    if(ir.value==BAS_P||state== 1){bass++;if(bass>7){bass=7;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==BAS_M||state==-1){bass--;if(bass<-7){bass=-7;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(bass*2);
    }
    //mid//
    if(menu==8)
    {
-    if(ir.value==MID_P){mid++;if(mid>7){mid=7;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==MID_M){mid--;if(mid<-7){mid=-7;}cl();audio_22();rom=1;time=millis();}
-    printMenu(mid*2);
+    if(ir.value==MID_P||state== 1){mid++;if(mid>7){mid=7;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==MID_M||state==-1){mid--;if(mid<-7){mid=-7;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(mid*2);
    }
    //treble//
     if(menu==9)
    {
-    if(ir.value==TR_P){treble++;if(treble>7){treble=7;}cl();audio_22();rom=1;time=millis();}
-    if(ir.value==TR_M){treble--;if(treble<-7){treble=-7;}cl();audio_22();rom=1;time=millis();}
-    printMenu(treble*2);
+    if(ir.value==TR_P||state== 1){treble++;if(treble>7){treble=7;}cl();audio_22();rom=1;time=millis();}
+    if(ir.value==TR_M||state==-1){treble--;if(treble<-7){treble=-7;}cl();audio_22();rom=1;time=millis();}
+    printMenu(menu);printValue(treble*2);
    }
    //3d//
    if(menu==10)
    {
     if(_3d>1){_3d=0;}
-    if(_3d==0&&ir.value==_3D_SW){_3d=1;audio_22();cl();rom=1;time=millis();}
-    if(_3d==1&&ir.value==_3D_SW){_3d=0;audio_22();cl();rom=1;time=millis();}
+    if(_3d==0&&ir.value==_3D_SW||state==-1){_3d=1;audio_22();cl();rom=1;time=millis();}
+    if(_3d==1&&ir.value==_3D_SW||state== 1){_3d=0;audio_22();cl();rom=1;time=millis();}
     printMenu_2(_3d);
    }
    if(menu==11)
@@ -218,6 +228,110 @@ void loop() {
   else{menu=0;printDev();}
  }
   
+}
+
+
+bool rotaryEncoder(int8_t &delta) {
+   delta = 0;
+  enum {STATE_LOCKED, STATE_TURN_RIGHT_START, 
+  STATE_TURN_RIGHT_MIDDLE, STATE_TURN_RIGHT_END, 
+  STATE_TURN_LEFT_START, STATE_TURN_LEFT_MIDDLE, 
+  STATE_TURN_LEFT_END, STATE_UNDECIDED};
+  
+  static uint8_t encoderState = STATE_LOCKED;
+  bool a = !digitalRead(DAT);
+  bool b = !digitalRead(CLK);
+  
+  switch (encoderState) {
+    case STATE_LOCKED:
+      if (a && b) {
+        encoderState = STATE_UNDECIDED;
+      }
+      else if (!a && b) {
+        encoderState = STATE_TURN_LEFT_START;
+      }
+      else if (a && !b) {
+        encoderState = STATE_TURN_RIGHT_START;
+      }
+      else {
+        encoderState = STATE_LOCKED;
+      };
+      break;
+    case STATE_TURN_RIGHT_START:
+      if (a && b) {
+        encoderState = STATE_TURN_RIGHT_MIDDLE;
+      }
+      else if (!a && b) {
+        encoderState = STATE_TURN_RIGHT_END;
+      }
+      else if (a && !b) {
+        encoderState = STATE_TURN_RIGHT_START;
+      }
+      else {
+        encoderState = STATE_LOCKED;
+      };
+      break;
+    case STATE_TURN_RIGHT_MIDDLE:
+    case STATE_TURN_RIGHT_END:
+      if (a && b) {
+        encoderState = STATE_TURN_RIGHT_MIDDLE;
+      }
+      else if (!a && b) {
+        encoderState = STATE_TURN_RIGHT_END;
+      }
+      else if (a && !b) {
+        encoderState = STATE_TURN_RIGHT_START;
+      }
+      else {
+        encoderState = STATE_LOCKED;
+        delta = -1;
+      };
+      break;
+    case STATE_TURN_LEFT_START:
+      if (a && b) {
+        encoderState = STATE_TURN_LEFT_MIDDLE;
+      }
+      else if (!a && b) {
+        encoderState = STATE_TURN_LEFT_START;
+      }
+      else if (a && !b) {
+        encoderState = STATE_TURN_LEFT_END;
+      }
+      else {
+        encoderState = STATE_LOCKED;
+      };
+      break;
+    case STATE_TURN_LEFT_MIDDLE:
+    case STATE_TURN_LEFT_END:
+      if (a && b) {
+        encoderState = STATE_TURN_LEFT_MIDDLE;
+      }
+      else if (!a && b) {
+        encoderState = STATE_TURN_LEFT_START;
+      }
+      else if (a && !b) {
+        encoderState = STATE_TURN_LEFT_END;
+      }
+      else {
+        encoderState = STATE_LOCKED;
+        delta = 1;
+      };
+      break;
+    case STATE_UNDECIDED:
+      if (a && b) {
+        encoderState = STATE_UNDECIDED;
+      }
+      else if (!a && b) {
+        encoderState = STATE_TURN_RIGHT_END;
+      }
+      else if (a && !b) {
+        encoderState = STATE_TURN_LEFT_END;
+      }
+      else {
+        encoderState = STATE_LOCKED;
+      };
+      break;
+  }
 }
 
 void audio_23(){
@@ -255,6 +369,7 @@ void cl(){
   if(menu==cur_menu){ir.value=0;}
   else{ir.value=0;lcd.clear();}
 }
+
 void updateRom(){
      EEPROM.update(0,volume);
      EEPROM.update(1,bass);
@@ -267,6 +382,7 @@ void updateRom(){
      EEPROM.update(8,_3d);
      EEPROM.update(9,in);
 }
+
 void readRom(){
   volume=EEPROM.read(0);
   bass=EEPROM.read(1);
@@ -279,28 +395,20 @@ void readRom(){
   _3d=EEPROM.read(8);
   in=EEPROM.read(9);
 }
+
 void printMenu(int val){
 
-  if(MENUS[menu].length()<7){
+  if(MENUS[val].length()<7){
     lcd.setCursor(1,0);
-    lcd.print(MENUS[menu]);
+    lcd.print(MENUS[val]);
   }
   else{
     lcd.setCursor(0,0);
-    lcd.print(MENUS[menu]);
+    lcd.print(MENUS[val]);
   }
-  printDigit(val);
 }
 
 void printMenu_2(int a){
-
-  byte cx[2][8]={ {B00000,B00001,B00011,B01111,B01111,B01111,B00011,B00001},
-                 {B00000,B00000,B01010,B00100,B01010,B00000,B00000,B00000}
-               };
-  
-  lcd.createChar(0,cx[0]);
-  lcd.createChar(1,cx[1]);
-
     if(menu==10){
     lcd.setCursor(4,0);lcd.print(MENUS[menu]);lcd.setCursor(7,1);
     switch(a){
@@ -310,64 +418,33 @@ void printMenu_2(int a){
   }
   if(menu==11){
     switch(a){
-      case 1:lcd.setCursor(6,0);lcd.print(MENUS[menu]);
-             lcd.setCursor(7,1);lcd.write(byte(0));lcd.write(byte(1));delay(500);
-             lcd.setCursor(7,1);lcd.print("  ");delay(500);break;
-      case 0:delay(200);lcd.clear();menu=2;rom=1;time=millis();break;
+      case 1:lcd.setCursor(6,0);lcd.print(MENUS[menu]);delay(500);
+             lcd.setCursor(6,0);lcd.print("    ");delay(500);break;
+      case 0:delay(100);lcd.clear();menu=2;rom=1;time=millis();break;
     }
   }
 
 }
 
 void printDev(){
-
-  lcd.clear();
-  byte zuhl[4][8]={ 
-    { B11111,B10001,B11101,B10001,B10111,B10001,B11111,B00000},//z
-    { B11111,B10101,B10101,B10101,B10101,B10001,B11111,B00000},//u
-    { B11111,B10101,B10101,B10001,B10101,B10101,B11111,B00000},//h
-    { B11111,B10111,B10111,B10111,B10111,B10001,B11111,B00000},//l
- };
- 
-  lcd.createChar(0,zuhl[0]);
-  lcd.createChar(1,zuhl[1]);
-  lcd.createChar(2,zuhl[2]);
-  lcd.createChar(3,zuhl[3]);
   
-  lcd.setCursor(6,0);lcd.write(byte(0));lcd.write(byte(1));
-  lcd.write(byte(2));lcd.write(byte(3));
+  lcd.clear();
+  lcd.setCursor(6,0);lcd.write(byte(4));lcd.write(byte(5));
+  lcd.write(byte(6));lcd.write(byte(7));
   lcd.setCursor(2,1);lcd.print(MENUS[0]);
+  
 }
 
-void printDigit(int val){
+void printValue(int val){
   
 int col=9;
-
-byte DIG[8][8] = {
-  {B00111,B01111,B11111,B11111,B11111,B11111,B11111,B11111},
-  { B11111,B11111,B11111,B00000,B00000,B00000,B00000,B00000},
-  { B11100,B11110,B11111,B11111,B11111,B11111,B11111,B11111},
-  { B11111,B11111,B11111,B11111,B11111,B11111,B01111,B00111},
-  { B00000,B00000,B00000,B00000,B00000,B11111,B11111,B11111},
-  { B11111,B11111,B11111,B11111,B11111,B11111,B11110,B11100},
-  { B11111,B11111,B11111,B00000,B00000,B00000,B11111,B11111},
-  { B11111,B11111,B11111,B11111,B11111,B11111,B11111,B11111}
-};
-
-  lcd.createChar(0,DIG[0]);
-  lcd.createChar(1,DIG[1]);
-  lcd.createChar(2,DIG[2]);
-  lcd.createChar(3,DIG[3]);
-  lcd.createChar(4,DIG[4]);
-  lcd.createChar(5,DIG[5]);
-  lcd.createChar(6,DIG[6]);
-  lcd.createChar(7,DIG[7]);
 
   if(val<0){val=abs(val);lcd.setCursor(7,1);lcd.print("-");}
   else{lcd.setCursor(7,1);lcd.print(" ");}
   
   printDigits(val/10,col);
   printDigits(val%10,col+4);
+  
 }
 void printDigits(int digits, int x){
   switch (digits) {
@@ -383,103 +460,103 @@ void printDigits(int digits, int x){
   case 9: digit_9(x);break;
   }
 }
+
 void digit_0(int x){
   lcd.setCursor(x,0);
   lcd.write((byte)0); 
-  lcd.write(1); 
-  lcd.write(2);
+  lcd.write(byte(1)); 
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
-  lcd.write(3); 
-  lcd.write(4); 
-  lcd.write(5);
+  lcd.write(byte(0)); 
+  lcd.write(byte(2)); 
+  lcd.write(byte(0));
 }
 void digit_1(int x){
   lcd.setCursor(x,0);
-  lcd.write(1);
-  lcd.write(2);
+  lcd.write(byte(1));
+  lcd.write(byte(0));
   lcd.print(" ");
   lcd.setCursor(x,1);
-  lcd.write(4);
-  lcd.write(7);
-  lcd.write(4);
+  lcd.write(byte(2));
+  lcd.write(byte(0));
+  lcd.write(byte(2));
 }
 void digit_2(int x){
   lcd.setCursor(x,0);
-  lcd.write(6);
-  lcd.write(6);
-  lcd.write(2);
+  lcd.write(byte(3));
+  lcd.write(byte(3));
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
-  lcd.write(3);
-  lcd.write(4);
-  lcd.write(4);
+  lcd.write(byte(0));
+  lcd.write(byte(2));
+  lcd.write(byte(2));
 }
 void digit_3(int x){
   lcd.setCursor(x,0);
-  lcd.write(6);
-  lcd.write(6);
-  lcd.write(2);
+  lcd.write(byte(3));
+  lcd.write(byte(3));
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
-  lcd.write(4);
-  lcd.write(4);
-  lcd.write(5);
+  lcd.write(byte(2));
+  lcd.write(byte(2));
+  lcd.write(byte(0));
 }
 void digit_4(int x){
   lcd.setCursor(x,0);
-  lcd.write(3);
-  lcd.write(4);
-  lcd.write(7);
+  lcd.write(byte(0));
+  lcd.write(byte(2));
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
-  lcd.print(" ");
-  lcd.print(" ");
-  lcd.write(7);
+  lcd.print("  ");
+  lcd.write(byte(0));
 }
 void digit_5(int x){
   lcd.setCursor(x,0);
-  lcd.write(3);
-  lcd.write(6);
-  lcd.write(6);
+  lcd.write(byte(0));
+  lcd.write(byte(3));
+  lcd.write(byte(3));
   lcd.setCursor(x, 1);
-  lcd.write(4);
-  lcd.write(4);
-  lcd.write(5);
+  lcd.write(byte(2));
+  lcd.write(byte(2));
+  lcd.write(byte(0));
 }
 void digit_6(int x){
   lcd.setCursor(x,0);
   lcd.write((byte)0);
-  lcd.write(6);
-  lcd.write(6);
+  lcd.write(byte(3));
+  lcd.write(byte(3));
   lcd.setCursor(x, 1);
-  lcd.write(3);
-  lcd.write(4);
-  lcd.write(5);
+  lcd.write(byte(0));
+  lcd.write(byte(2));
+  lcd.write(byte(0));
 }
 void digit_7(int x){
   lcd.setCursor(x,0);
-  lcd.write(1);
-  lcd.write(1);
-  lcd.write(2);
+  lcd.write(byte(1));
+  lcd.write(byte(1));
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
   lcd.print(" ");
   lcd.print(" ");
-  lcd.write(7);
+  lcd.write(byte(0));
 }
 void digit_8(int x){
   lcd.setCursor(x,0);
-  lcd.write((byte)0);
-  lcd.write(6);
-  lcd.write(2);
+  lcd.write(byte(0));
+  lcd.write(byte(3));
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
-  lcd.write(3);
-  lcd.write(4);
-  lcd.write(5);
+  lcd.write(byte(0));
+  lcd.write(byte(2));
+  lcd.write(byte(0));
 }
 void digit_9(int x){
   lcd.setCursor(x,0);
-  lcd.write((byte)0);
-  lcd.write(6);
-  lcd.write(2);
+  lcd.write(byte(0));
+  lcd.write(byte(3));
+  lcd.write(byte(0));
   lcd.setCursor(x, 1);
   lcd.print(" ");
   lcd.print(" ");
-  lcd.write(7);
+  lcd.write(byte(0));
 }
