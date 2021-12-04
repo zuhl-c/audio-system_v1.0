@@ -1,7 +1,7 @@
 # audio-system_v1.0
 
 This is 6 channel audio processor system using
-Arduino Uno/Nano and PT2323 ic (6 ch input selector),
+Arduino Uno/Nano and PT2323 ic (6 channel input selector),
 PT2322 ic (6 channel audio processor).
 Controls using IR remote and Rotary encoder.
 Interface with 1602 LCD.
@@ -14,6 +14,7 @@ Interface with 1602 LCD.
 * 6-channel individual output TRIM volume control: 0 to -15dB (1dB/step)
 * Enhanced surround function
 * 3d sound function
+* mute function
 * 3 band tone control -14dB to +14dB (2dB/step)
 * Low noise and low harmonic distortion
 
